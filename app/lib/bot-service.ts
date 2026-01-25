@@ -11,7 +11,8 @@ import {
   doc, 
   limit, 
   orderBy,
-  Timestamp 
+  Timestamp,
+  deleteDoc 
 } from 'firebase/firestore';
 
 export type Position = {
@@ -43,7 +44,50 @@ export type BotStats = {
   lastTradeResult: 'WIN' | 'LOSS' | null;
 };
 
+export type ManualTrade = {
+    id: string;
+    symbol: string;
+    entryPrice: number;
+    targetPrice: number; // +3% Auto-calc
+    addedAt: string;
+};
+
 export const BotService = {
+  // ... existing methods ...
+
+  /**
+   * Add a manual trade to track.
+   */
+  async addManualTrade(symbol: string, entryPrice: number) {
+      const targetPrice = entryPrice * 1.03; // Simple 3% target for "Forecast"
+      await addDoc(collection(db, 'manual_trades'), {
+          symbol,
+          entryPrice,
+          targetPrice,
+          addedAt: new Date().toISOString()
+      });
+  },
+
+  /**
+   * Get all active manual trades.
+   */
+  async getManualTrades(): Promise<ManualTrade[]> {
+       try {
+           const q = query(collection(db, 'manual_trades'));
+           const snapshot = await getDocs(q);
+           return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ManualTrade));
+       } catch (e) {
+           console.error("Error fetching manual trades", e);
+           return [];
+       }
+  },
+
+  /**
+   * Delete a manual trade (Stop tracking).
+   */
+  async deleteManualTrade(id: string) {
+      await deleteDoc(doc(db, 'manual_trades', id));
+  },
   /**
    * Get the current active position for a symbol.
    * Returns null if no open position exists.
@@ -259,5 +303,32 @@ export const BotService = {
       console.error('Error fetching logs:', error);
       return [];
     }
+  },
+
+  /**
+   * Delete logs older than X hours to save space.
+   */
+  async pruneOldLogs(hoursToKeep: number = 3) {
+      try {
+          const now = new Date();
+          now.setHours(now.getHours() - hoursToKeep);
+          const cutOffStr = now.toISOString();
+
+          // Query logs older than cutoff
+          const q = query(
+              collection(db, 'bot_logs'),
+              where('timestamp', '<', cutOffStr)
+          );
+
+          const snapshot = await getDocs(q);
+          const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+          
+          if (deletePromises.length > 0) {
+              await Promise.all(deletePromises);
+              console.log(`Pruned ${deletePromises.length} old logs.`);
+          }
+      } catch (error) {
+          console.error("Error pruning logs:", error);
+      }
   }
 };
