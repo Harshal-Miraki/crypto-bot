@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { BotResponse } from './types';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from './lib/firebase';
 
 export default function Home() {
   const [data, setData] = useState<BotResponse | null>(null);
@@ -36,14 +38,72 @@ export default function Home() {
     }
   };
 
+
+
+  // ... inside component ...
+  // Load auto-run state from localStorage on mount
+  useEffect(() => {
+    const savedAutoRun = localStorage.getItem('bot_autoRun');
+    if (savedAutoRun === 'true') {
+      setIsAutoRunning(true);
+    }
+    // Also run a fresh analysis on load if we want immediate data
+    // Or just let the auto-runner handle it?
+    // User wants "latest info" on reload. 
+    // Let's trigger a runBot() if auto-run is ON, or just fetch status.
+    // Since runBot triggers analysis, let's call it safely.
+    if (savedAutoRun === 'true') {
+      runBot();
+    }
+  }, []);
+
+  // Save auto-run state
+  useEffect(() => {
+    localStorage.setItem('bot_autoRun', String(isAutoRunning));
+  }, [isAutoRunning]);
+
+  // Auto-Run Loop
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isAutoRunning) {
-      runBot(); // Run immediately on start
-      interval = setInterval(runBot, 600000); // Run every 10 minutes (600,000 ms)
+      // If we just mounted and set isAutoRunning=true, runBot might run twice if we are not careful?
+      // actually runBot() above is in the mount effect.
+      // This effect runs when isAutoRunning changes.
+      // Let's rely on this effect to start the interval.
+      // But we also want an *immediate* run if we just toggled it ON or loaded page.
+
+      // If we rely purely on interval, first run is delayed by 10 mins.
+      // We want immediate execution.
+      // But avoid double execution on mount.
+      // Simpler logic:
+      // The mount effect sets state. This effect sees "true".
+      // We can check if data is null? 
+
+      interval = setInterval(runBot, 600000); // 10 minutes
     }
     return () => clearInterval(interval);
   }, [isAutoRunning]);
+
+  // Fetch History (Persistent Logs)
+  useEffect(() => {
+    async function fetchHistory() {
+      try {
+        const q = query(collection(db, 'bot_logs'), orderBy('timestamp', 'desc'), limit(20));
+        const snapshot = await getDocs(q);
+        const history = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return `[${new Date(data.timestamp).toLocaleTimeString()}] ${data.level}: ${data.message}`;
+        });
+        setLogs(prev => {
+          // Avoid duplicates if merging
+          return history;
+        });
+      } catch (e) {
+        console.error("Failed to fetch log history", e);
+      }
+    }
+    fetchHistory();
+  }, []);
 
   const testEmail = async () => {
     try {
@@ -77,7 +137,17 @@ export default function Home() {
         {/* Status Card */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-            <h2 className="text-xl font-semibold mb-4 text-gray-300">Market Status</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-300">Market Status</h2>
+              <button
+                onClick={runBot}
+                disabled={loading}
+                className="text-gray-400 hover:text-white transition-colors bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs"
+                title="Refresh Data"
+              >
+                {loading ? '...' : '↻ Refresh'}
+              </button>
+            </div>
             {data ? (
               <div className="space-y-4">
                 <div className="flex justify-between">

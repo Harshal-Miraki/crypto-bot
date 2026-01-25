@@ -124,18 +124,16 @@ export async function GET() {
     // --- TIME-BASED FILTER ---
     const now = new Date();
     const hour = now.getUTCHours(); 
-    // Convert to IST roughly for logic (IST = UTC + 5.5)
-    // We can just use UTC hours. 
-    // US Open is ~13:30 - 14:30 UTC. Asian dead is ~21:30 - 02:30 UTC.
-    // Let's implement the logic requested:
     // Weekend: Sat(6), Sun(0)
-    const isWeekend = now.getUTCDay() === 0 || now.getUTCDay() === 6;
+    // const isWeekend = now.getUTCDay() === 0 || now.getUTCDay() === 6;
+    const isWeekend = false; // DISABLED FOR TESTING: User wants to see signals now (Sunday)
+
     // US Open Volatility (13:30 - 14:30 UTC => 7 PM - 8 PM IST)
     const isUSOpen = hour === 13 || hour === 14; 
     
     // Safety Check string
     let timeSafetyWarning = '';
-    if (isWeekend) timeSafetyWarning = 'WEEKEND (Low Liquidity)';
+    // if (isWeekend) timeSafetyWarning = 'WEEKEND (Low Liquidity)';
     if (isUSOpen) timeSafetyWarning = 'US OPEN (High Volatility)';
 
     // --- MARKET REGIME FILTER ---

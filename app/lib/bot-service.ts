@@ -31,6 +31,15 @@ export type Position = {
 };
 
 
+export type BotStats = {
+  id: string; // 'daily_stats'
+  date: string; // YYYY-MM-DD
+  tradesToday: number;
+  dailyPnL: number;
+  consecutiveWins: number;
+  consecutiveLosses: number;
+  lastTradeResult: 'WIN' | 'LOSS' | null;
+};
 
 export const BotService = {
   /**
