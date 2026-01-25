@@ -13,7 +13,10 @@ const firebaseConfig = {
 
 // Initialize Firebase
 // Avoid re-initialization in Next.js hot-reload
+import { getAuth } from "firebase/auth";
+
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-export { db };
+export { db, auth };

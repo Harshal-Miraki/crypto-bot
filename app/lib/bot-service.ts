@@ -4,6 +4,8 @@ import {
   query, 
   where, 
   getDocs, 
+  getDoc,
+  setDoc,
   addDoc, 
   updateDoc, 
   doc, 
@@ -108,11 +110,25 @@ export const BotService = {
       
       await this.log('TRADE', `Opened BUY position for ${symbol} at $${price}. SL: $${stopLossPrice} (-3%)`);
       
+      
       return { id: docRef.id, ...newPosition };
     } catch (error) {
        console.error('Error opening position:', error);
        throw error;
     }
+  },
+
+  /**
+   * Update position fields (e.g. for trailing stop).
+   */
+  async updatePosition(id: string, updates: Partial<Position>) {
+      try {
+          const docRef = doc(db, 'positions', id);
+          await updateDoc(docRef, updates);
+      } catch (error) {
+          console.error('Error updating position:', error);
+          throw error;
+      }
   },
 
 
@@ -123,13 +139,7 @@ export const BotService = {
       const today = new Date().toISOString().split('T')[0];
       const docRef = doc(db, 'bot_stats', 'daily_stats');
       
-      const snapshot = await import('firebase/firestore').then(mod => mod.getDoc(docRef)); // Dynamic import to avoid scope issues? No, just standard usage.
-      // Actually, we can just use the 'getDoc' if we import it. 
-      // Assuming 'getDoc' is imported in file.
-      // Wait, let's fix imports first if needed.
-      // Using 'any' for now to avoid compilation hassle in replacement, 
-      // but better to add imports.
-      // Let's assume getDoc is available or add it.
+      const snapshot = await getDoc(docRef);
       
       if (snapshot.exists()) {
           const data = snapshot.data() as BotStats;
@@ -164,7 +174,6 @@ export const BotService = {
    */
   async updateTradingStats(stats: BotStats) {
       const docRef = doc(db, 'bot_stats', 'daily_stats');
-      const { setDoc } = await import('firebase/firestore'); // Lazy import
       await setDoc(docRef, stats, { merge: true });
   },
 
@@ -173,34 +182,9 @@ export const BotService = {
    */
   async closePosition(positionId: string, exitPrice: number, reason: string = 'Signal') {
     try {
-      // Fetch the position first to calculate PnL (in a real app, use a transaction)
-      // For now, we assume we have the details or just update.
-      // Ideally we should read it again, but let's just update based on ID.
-      // We need entry_price to calculate PnL accurately.
-      // Since we don't have it passed here, let's fetch it.
-      
-      // NOTE: In a robust system, use runTransaction.
       const posRef = doc(db, 'positions', positionId);
-      // We'll update it directly assuming the caller verified the PnL logic, 
-      // OR we can just fetch it here.
-      // Let's keep it simple: The caller (route.ts) has the active position object,
-      // but to be safe, let's just update the known fields.
-      // Wait, we need to calculate PnL to store it.
       
-      // Let's assume the caller passes the PnL or we fetch the doc.
-      // Optimally:
-      // const posSnap = await getDoc(posRef);
-      // const pos = posSnap.data();
-      // const pnl = (exitPrice - pos.entry_price) * pos.quantity;
-
-      // START SIMPLIFICATION -> Just store exit price and status, calculate PnL on read if needed?
-      // No, better to store PnL.
-      // Let's fetch the doc just to be sure.
-      
-      // ... actually, the `getActivePosition` in route.ts ALREADY has the entry_price. 
-      // But `route.ts` calls `closePosition`. 
-      // Let's just do a quick read to be safe.
-      const docSnap = await import('firebase/firestore').then(mod => mod.getDoc(posRef));
+      const docSnap = await getDoc(posRef);
       if (!docSnap.exists()) throw new Error('Position not found');
       
       const posData = docSnap.data();

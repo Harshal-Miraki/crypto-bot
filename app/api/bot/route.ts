@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import ccxt from 'ccxt';
 import nodemailer from 'nodemailer';
 import { RSI, MACD, BollingerBands, SMA, EMA, ATR } from 'technicalindicators';
-import axios from 'axios';
 import { BotResponse } from '../../types';
-import { BotService, Position } from '../../lib/bot-service';
+import { BotService } from '../../lib/bot-service';
+import { auth } from '../../lib/firebase';
+import { signInAnonymously } from 'firebase/auth';
 
 // Environment variables
 const BINANCE_API_KEY = process.env.BINANCE_API_KEY;
@@ -13,8 +14,9 @@ const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
 const SYMBOL = 'BTC/USDT';
-const TIMEFRAME = '1h';
+const TIMEFRAME = '15m'; // INTRADAY
 const RSI_PERIOD = 14;
+const FORCE_CLOSE_HOUR = 23; // 11 PM Local Time
 
 // Email Transporter
 const transporter = nodemailer.createTransport({
@@ -25,18 +27,23 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-async function getUSDTInrRate(): Promise<number> {
-    try {
-        const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=inr');
-        return response.data.tether.inr;
-    } catch (error) {
-        console.error('Error fetching USDT rate:', error);
-        return 88; 
-    }
+async function getUSDTInrRate() {
+    // Simplified rate for now to avoid external dependency issues during bot execution
+    return 87.50;
 }
 
 export async function GET() {
   try {
+    // Authenticate with Firebase (Anonymous)
+    if (!auth.currentUser) {
+        try {
+            await signInAnonymously(auth);
+            console.log('Bot authenticated anonymously for Firestore access.');
+        } catch (authError: any) {
+            console.error('Firebase Auth Error:', authError.message);
+        }
+    }
+
     if (!EMAIL_USER || !EMAIL_PASS) {
       return NextResponse.json(
         { error: 'Missing environment variables.' },
@@ -48,10 +55,23 @@ export async function GET() {
     const exchange = new ccxt.binance({
       apiKey: BINANCE_API_KEY,
       secret: BINANCE_SECRET_KEY,
+      timeout: 30000, 
+      enableRateLimit: true,
     });
 
-    // 2. Fetch Data (Need more candles for MACD/EMA/Bollinger)
-    const candles = await exchange.fetchOHLCV(SYMBOL, TIMEFRAME, undefined, 200);
+    // 2. Fetch Data 
+    let candles;
+    for (let i = 0; i < 3; i++) {
+        try {
+            candles = await exchange.fetchOHLCV(SYMBOL, TIMEFRAME, undefined, 200);
+            break;
+        } catch (e: any) {
+            console.warn(`Attempt ${i+1} failed:`, e.message);
+            if (i === 2) throw e;
+            await new Promise(res => setTimeout(res, 2000));
+        }
+    }
+
     if (!candles || candles.length < 50) {
        return NextResponse.json({ error: 'Not enough data' }, { status: 500 });
     }
@@ -74,7 +94,6 @@ export async function GET() {
     // Volatility (ATR 14)
     const atrValues = ATR.calculate({ high: highs, low: lows, close: closes, period: 14 });
     const currentATR = atrValues[atrValues.length - 1];
-    // Calculate Average ATR (last 20 periods of ATR)
     const avgATR = atrValues.slice(-20).reduce((a, b) => a + b, 0) / 20;
 
     const isDowntrend = currentPrice < currentEMA50;
@@ -123,18 +142,19 @@ export async function GET() {
 
     // --- TIME-BASED FILTER ---
     const now = new Date();
-    const hour = now.getUTCHours(); 
-    // Weekend: Sat(6), Sun(0)
-    // const isWeekend = now.getUTCDay() === 0 || now.getUTCDay() === 6;
-    const isWeekend = false; // DISABLED FOR TESTING: User wants to see signals now (Sunday)
-
-    // US Open Volatility (13:30 - 14:30 UTC => 7 PM - 8 PM IST)
-    const isUSOpen = hour === 13 || hour === 14; 
+    const hour = now.getHours(); 
+    const utcHour = now.getUTCHours(); 
+    
+    // US Open Volatility
+    const isUSOpen = utcHour === 13 || utcHour === 14; 
     
     // Safety Check string
     let timeSafetyWarning = '';
-    // if (isWeekend) timeSafetyWarning = 'WEEKEND (Low Liquidity)';
     if (isUSOpen) timeSafetyWarning = 'US OPEN (High Volatility)';
+    
+    // EOD CHECK
+    const isEOD = hour >= FORCE_CLOSE_HOUR;
+    if (isEOD) timeSafetyWarning = 'END OF DAY (Force Close)';
 
     // --- MARKET REGIME FILTER ---
     const regime = isDowntrend ? 'DOWNTREND 🔴' : 'UPTREND 🟢';
@@ -144,51 +164,77 @@ export async function GET() {
     const stats = await BotService.getTradingStats();
     let limitWarning = '';
     
-    if (stats.tradesToday >= 3) limitWarning = 'Daily Trade Limit Reached (3/3)';
+    if (stats.tradesToday >= 5) limitWarning = 'Daily Trade Limit Reached (5/5)'; 
     if (stats.dailyPnL <= -300) limitWarning = 'Daily Loss Limit Hit (-$300)';
     if (stats.consecutiveLosses >= 3) limitWarning = 'Circuit Breaker: 3 Consecutive Losses';
 
     if (activePosition) {
-        // --- MANAGE ACTIVE POSITION ---
+        // --- MANAGE ACTIVE POSITION (INTRADAY LOGIC) ---
         
         let closeReason = '';
-        let pnl = 0;
-
-        // 1. Check STOP LOSS (Critical)
-        if (activePosition.stopLossPrice && currentPrice <= activePosition.stopLossPrice) {
-            closeReason = 'Stop Loss';
-            signal = 'SELL';
-            reasons.push(`STOP LOSS HIT ($${activePosition.stopLossPrice})`);
+        
+        // 0. Force Close at End of Day
+        if (isEOD) {
+             signal = 'SELL';
+             closeReason = 'End of Day Exit';
+             reasons.push('Force closing all positions before sleep.');
         }
-        // 2. Trailing Stop Logic
         else {
-             // Update Highest Price Seen
-            const highest = activePosition.highestPriceSeen || activePosition.entry_price;
-            if (currentPrice > highest) {
-                await BotService.updatePosition(activePosition.id, { highestPriceSeen: currentPrice });
-            }
-            
-            // 3. Technical Exit (Indicators)
-            const isRsiOverbought = currentRSI > 70;
-            const isMacdBearish = macdHist < 0;
-
-            if (isRsiOverbought && isMacdBearish) {
+             // 1. Check STOP LOSS
+             if (activePosition.stopLossPrice && currentPrice <= activePosition.stopLossPrice) {
+                closeReason = 'Stop Loss';
                 signal = 'SELL';
-                closeReason = 'Indicator Exit';
-                reasons.push('RSI Overbought (>70)', 'MACD Bearish flip');
-            } else if (currentPrice >= bbUpper) {
-                reasons.push('Hit Upper Bollinger Band (Watch for exit)');
-            }
+                reasons.push(`STOP LOSS HIT ($${activePosition.stopLossPrice})`);
+             }
+             // 2. Dynamic Trailing Stop
+             else {
+                const highest = activePosition.highestPriceSeen || activePosition.entry_price;
+                
+                if (currentPrice > highest) {
+                    await BotService.updatePosition(activePosition.id, { highestPriceSeen: currentPrice });
+                    
+                    const profitPct = (currentPrice - activePosition.entry_price) / activePosition.entry_price;
+                    
+                    if (profitPct > 0.01 && (activePosition.stopLossPrice === undefined || activePosition.stopLossPrice < activePosition.entry_price)) {
+                        const newSL = Number((activePosition.entry_price * 1.002).toFixed(2));
+                         await BotService.updatePosition(activePosition.id, { stopLossPrice: newSL });
+                         reasons.push('Moved SL to Breakeven');
+                    }
+                }
+                
+                const trailingStopLevel = Number((highest * 0.985).toFixed(2));
+                
+                if (currentPrice <= trailingStopLevel && currentPrice > activePosition.entry_price) {
+                     closeReason = 'Trailing Stop (Trend Reversal)';
+                     signal = 'SELL';
+                     reasons.push(`Trailing Stop Hit ($${trailingStopLevel}) - Secured Profit`);
+                }
+                
+                // 3. Technical Exit
+                const isRsiOverbought = currentRSI > 75; 
+                const isMacdBearish = macdHist < 0;
+
+                if (isRsiOverbought && isMacdBearish) {
+                    signal = 'SELL';
+                    closeReason = 'Indicator Exit';
+                    reasons.push('RSI Overbought (>75)', 'MACD Bearish flip');
+                } else if (currentPrice >= bbUpper) {
+                    reasons.push('Hit Upper Bollinger Band (Watch for exit)');
+                }
+             }
+
+             if (signal === 'SELL' && !actionTaken.startsWith('EXECUTION')) {
+                 actionTaken = `EXECUTION: Closed (${closeReason})`;
+             }
         }
 
         // EXECUTE CLOSE
         if (signal === 'SELL') {
-             const result = await BotService.closePosition(activePosition.id, currentPrice, closeReason);
-             actionTaken = `EXECUTION: Closed (${closeReason})`;
+             if (!actionTaken.startsWith('EXECUTION')) actionTaken = 'EXECUTION: Closed';
+
+             const result = await BotService.closePosition(activePosition.id, currentPrice, reasons.join(', '));
              
-             // Update Stats
              const tradePnL = result.pnl;
-             stats.tradesToday += 0; // Closing doesn't count as a "new trade"? Or maybe it does? usually opening counts.
              stats.dailyPnL += tradePnL;
              if (tradePnL > 0) {
                  stats.consecutiveWins += 1;
@@ -205,9 +251,11 @@ export async function GET() {
     } else {
         // --- MANAGE ENTRY ---
 
-        // 1. Global Filters
         if (limitWarning) {
             actionTaken = `SKIPPING: ${limitWarning}`;
+        }
+        else if (isEOD) {
+             actionTaken = `SKIPPING: ${timeSafetyWarning}`;
         }
         else if (isDowntrend) {
             actionTaken = 'SKIPPING: Market in Downtrend (< EMA 50)';
@@ -219,14 +267,12 @@ export async function GET() {
             actionTaken = `SKIPPING: ${timeSafetyWarning}`;
         }
         else {
-            // 2. Confluence Score System (Tier 2)
             let score = 0;
             
             const isRsiOversold = currentRSI < 30; 
             const isMacdBullish = macdHist > 0 && macdVal > macdSig;
             const isNearLowerBand = currentPrice <= bbLower * 1.01; 
             
-            // Scoring Weights
             if (isRsiOversold) score += 35;
             if (isMacdBullish) score += 30;
             if (isNearLowerBand) score += 20;
@@ -239,17 +285,15 @@ export async function GET() {
 
                 signal = 'BUY';
                 
-                // DYNAMIC POSITION SIZING (Tier 3)
                 let riskUSD = 100; // Base Risk
-                if (stats.consecutiveWins >= 2) riskUSD = 120; // Increase 20%
-                if (stats.consecutiveLosses >= 2) riskUSD = 60; // Reduce 40%
+                if (stats.consecutiveWins >= 2) riskUSD = 120; 
+                if (stats.consecutiveLosses >= 2) riskUSD = 60; 
 
                 const quantity = Number((riskUSD / currentPrice).toFixed(5));
                 
                 await BotService.openPosition(SYMBOL, currentPrice, quantity);
                 actionTaken = `EXECUTION: Opened Long ($${riskUSD})`;
                 
-                // Update Stats
                 stats.tradesToday += 1;
                 await BotService.updateTradingStats(stats);
 
@@ -262,7 +306,6 @@ export async function GET() {
 
     // 5. Notification & Response
     const USD_INR = await getUSDTInrRate();
-    const priceINR = currentPrice * USD_INR;
 
     const shouldEmail = (signal !== 'HOLD') || (activePosition !== null && Math.abs((currentPrice - activePosition.entry_price)/activePosition.entry_price) > 0.05);
 
