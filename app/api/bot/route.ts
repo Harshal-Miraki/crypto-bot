@@ -33,7 +33,7 @@ async function getUSDTInrRate() {
         const data = await res.json();
         const forexRate = data.rates.INR;
         // USDT usually trades at a premium in India (approx 3-4% over Forex rate)
-        return forexRate * 1.035; 
+        return forexRate; 
     } catch (error) {
         console.warn('Failed to fetch INR rate, using fallback:', error);
         return 88.0; // Fallback
