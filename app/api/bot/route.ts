@@ -33,10 +33,11 @@ async function getUSDTInrRate() {
     try {
         const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { next: { revalidate: 3600 } }); 
         const data = await res.json();
-        return data.rates.INR; 
+        const baseRate = data.rates.INR;
+        return baseRate * 1.020; // +2% Premium for CoinDCX
     } catch (error) {
         console.warn('Failed to fetch INR rate, using fallback:', error);
-        return 88.0; 
+        return 88.0 * 1.020; // Fallback with premium
     }
 }
 

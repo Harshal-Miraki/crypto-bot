@@ -130,7 +130,7 @@ export default function Home() {
         </header>
 
         {/* Control Panel */}
-        <div className="bg-brand-navy/60 backdrop-blur-xl p-6 rounded-xl shadow-2xl border border-brand-blue flex flex-col items-center text-center">
+        <div className="bg-[#110C18] backdrop-blur-xl p-6 rounded-xl shadow-2xl border border-[#1e1628] flex flex-col items-center text-center">
           <h3 className="text-lg font-medium text-gray-300 mb-2">Automation Control</h3>
           <p className="text-xs text-gray-400 max-w-md mb-4">
             Auto-run will verify BTC, ETH, and SOL every 10 minutes.
@@ -145,6 +145,37 @@ export default function Home() {
           >
             {isAutoRunning ? 'STOP BOTS (Running)' : 'START AUTO-RUN'}
           </button>
+        </div>
+
+        {/* Strategy Reference Guide */}
+        <div className="bg-brand-navy/60 backdrop-blur-xl p-6 rounded-xl shadow-2xl border border-[#1e1628]">
+          <h3 className="text-lg font-bold text-gray-200 mb-4 border-b border-brand-blue/30 pb-2">📊 Strategy Reference Guide (Intraday)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
+            <div className="space-y-1">
+              <p className="text-gray-400 text-xs uppercase tracking-widest">RSI (Momentum)</p>
+              <p className="text-white font-mono"><span className="text-green-400">Buy &lt; 30</span> (Oversold)</p>
+              <p className="text-white font-mono"><span className="text-red-400">Sell &gt; 75</span> (Overbought)</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-400 text-xs uppercase tracking-widest">MACD (Trend)</p>
+              <p className="text-white font-mono"><span className="text-green-400">Green Hist</span> = Bullish</p>
+              <p className="text-white font-mono"><span className="text-red-400">Red Flip</span> = Exit Signal</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-400 text-xs uppercase tracking-widest">Risk Management</p>
+              <p className="text-white font-mono">Stop Loss: <span className="text-red-400">Fixed 3.0%</span></p>
+              <p className="text-white font-mono">Trailing Stop: <span className="text-blue-400">1.5% Gap</span></p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-400 text-xs uppercase tracking-widest">Profit Booking</p>
+              <p className="text-yellow-400 font-bold">Bot Auto-Books When:</p>
+              <ul className="text-gray-300 text-xs list-disc pl-4 space-y-1">
+                <li>RSI hits extreme (&gt;75)</li>
+                <li>Price drops 1.5% from Peak</li>
+                <li>End of Day (11:00 PM)</li>
+              </ul>
+            </div>
+          </div>
         </div>
 
         {/* Crypto Grid */}
