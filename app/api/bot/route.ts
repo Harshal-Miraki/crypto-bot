@@ -28,8 +28,16 @@ const transporter = nodemailer.createTransport({
 });
 
 async function getUSDTInrRate() {
-    // Simplified rate for now to avoid external dependency issues during bot execution
-    return 87.50;
+    try {
+        const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { next: { revalidate: 3600 } }); // Cache for 1 hour
+        const data = await res.json();
+        const forexRate = data.rates.INR;
+        // USDT usually trades at a premium in India (approx 3-4% over Forex rate)
+        return forexRate * 1.035; 
+    } catch (error) {
+        console.warn('Failed to fetch INR rate, using fallback:', error);
+        return 88.0; // Fallback
+    }
 }
 
 export async function GET() {
@@ -306,6 +314,7 @@ export async function GET() {
 
     // 5. Notification & Response
     const USD_INR = await getUSDTInrRate();
+    const priceINR = currentPrice * USD_INR;
 
     const shouldEmail = (signal !== 'HOLD') || (activePosition !== null && Math.abs((currentPrice - activePosition.entry_price)/activePosition.entry_price) > 0.05);
 
@@ -313,8 +322,9 @@ export async function GET() {
         const mailOptions = {
             from: EMAIL_USER,
             to: EMAIL_USER,
-            subject: `Bot ${signal}: ${SYMBOL} @ $${currentPrice.toLocaleString()}`,
+            subject: `Bot ${signal}: ${SYMBOL} @ $${currentPrice.toLocaleString()} (₹${priceINR.toLocaleString('en-IN', {maximumFractionDigits: 0})})`,
             text: `
+              Price: $${currentPrice.toLocaleString()} | ₹${priceINR.toLocaleString('en-IN', {maximumFractionDigits: 2})}
               Action: ${actionTaken}
               Regime: ${regime} | ${volatility}
               Time Check: ${timeSafetyWarning || 'Safe'}

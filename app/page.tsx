@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { BotResponse } from './types';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from './lib/firebase';
+import Link from 'next/link';
 
 export default function Home() {
   const [data, setData] = useState<BotResponse | null>(null);
@@ -13,7 +14,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   // Constants
-  const USD_INR = 88; // sync with backend approx
+  // Constants
 
   const runBot = async () => {
     setLoading(true);
@@ -125,6 +126,12 @@ export default function Home() {
         <header className="flex justify-between items-center border-b border-gray-700 pb-4">
           <h1 className="text-3xl font-bold text-blue-400">Crypto Trading Bot</h1>
           <div className="space-x-4">
+            <Link
+              href="/history"
+              className="text-gray-300 hover:text-white px-4 py-2 rounded text-sm transition-colors border border-gray-600 hover:border-gray-500"
+            >
+              📜 Trade History
+            </Link>
             <button
               onClick={testEmail}
               className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm transition-colors"

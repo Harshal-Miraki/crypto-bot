@@ -223,6 +223,26 @@ export const BotService = {
   },
 
   /**
+   * Get closed trade history.
+   */
+  async getTradeHistory(limitCount = 50): Promise<Position[]> {
+    try {
+      const q = query(
+        collection(db, 'positions'),
+        where('status', '==', 'CLOSED'),
+        orderBy('closed_at', 'desc'),
+        limit(limitCount)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Position));
+    } catch (error) {
+      console.error('Error fetching trade history:', error);
+      return [];
+    }
+  },
+
+  /**
    * Get recent logs.
    */
   async getLogs(limitCount = 50) {
