@@ -28,5 +28,11 @@ export interface BotResponse {
         current: number;
     };
   };
+  forecast?: {
+    prediction: string;
+    timeFrame: string;
+    velocity: number; // RSI change per candle
+    trend: 'bullish' | 'bearish' | 'neutral';
+  };
   error?: string;
 }

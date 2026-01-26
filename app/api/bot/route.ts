@@ -313,6 +313,45 @@ async function analyzeAndTrade(symbol: string, exchange: any, USD_INR: number) {
 
     await BotService.log('INFO', `${symbol}: ${signal} | ${regime} | ${actionTaken}`, { rsi: currentRSI, symbol });
 
+    // --- FORECAST ENGINE ---
+    const prevRSI = rsiValues[rsiValues.length - 2] || currentRSI;
+    const rsiVelocity = Number((currentRSI - prevRSI).toFixed(2));
+    
+    let forecast = {
+        prediction: 'Market Stagnant',
+        timeFrame: 'Indefinite',
+        velocity: rsiVelocity,
+        trend: 'neutral' as 'bullish' | 'bearish' | 'neutral'
+    };
+
+    if (rsiVelocity <= -0.5) { // Dropping Fast (Bearish toward Buy)
+        const distanceToBuy = currentRSI - 30;
+        forecast.trend = 'bearish';
+        if (distanceToBuy > 0 && distanceToBuy < 40) { // Only if reasonable range
+            const candles = distanceToBuy / Math.abs(rsiVelocity);
+            const mins = Math.ceil(candles * 15);
+             if (mins < 300) { // Only show if within 5 hours
+                forecast.prediction = `📉 Approaching Buy Zone`;
+                const hours = Math.floor(mins / 60);
+                const remainingMins = mins % 60;
+                forecast.timeFrame = hours > 0 ? `~${hours}h ${remainingMins}m` : `~${mins}m`;
+             }
+        }
+    } else if (rsiVelocity >= 0.5) { // Rising (Bullish toward Sell)
+         const distanceToSell = 75 - currentRSI;
+         forecast.trend = 'bullish';
+         if (distanceToSell > 0 && distanceToSell < 40) {
+            const candles = distanceToSell / rsiVelocity;
+            const mins = Math.ceil(candles * 15);
+            if (mins < 300) {
+                forecast.prediction = `🚀 Approaching Sell Zone`;
+                const hours = Math.floor(mins / 60);
+                const remainingMins = mins % 60;
+                forecast.timeFrame = hours > 0 ? `~${hours}h ${remainingMins}m` : `~${mins}m`;
+            }
+         }
+    }
+
     return {
       symbol: symbol,
       price: currentPrice,
@@ -330,7 +369,8 @@ async function analyzeAndTrade(symbol: string, exchange: any, USD_INR: number) {
           macd: { MACD: macdVal, signal: macdSig, histogram: macdHist },
           bollinger: { upper: bbUpper, middle: currentBB?.middle || 0, lower: bbLower },
           volume: { isHigh: isHighVolume, average: currentVolSMA, current: currentVolume }
-      }
+      },
+      forecast: forecast
     };
 }
 

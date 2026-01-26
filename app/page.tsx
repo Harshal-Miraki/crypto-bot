@@ -99,7 +99,7 @@ export default function Home() {
     <div className="min-h-screen bg-transparent text-white p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-center border-b border-brand-blue pb-4 gap-4">
-          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Crypto Multi-Bot Dashboard</h1>
+          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-purple-400">Crypto Multi-Bot Dashboard</h1>
           <div className="flex space-x-4">
             <Link
               href="/tracker"
@@ -222,6 +222,28 @@ export default function Home() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Forecast Engine UI */}
+                    {coin.forecast && coin.forecast.prediction !== 'Market Stagnant' && (
+                      <div className={`mt-3 p-2 rounded-lg border relative overflow-hidden ${coin.forecast.trend === 'bullish' ? 'bg-purple-900/20 border-purple-500/30' :
+                        coin.forecast.trend === 'bearish' ? 'bg-blue-900/20 border-blue-500/30' :
+                          'bg-gray-800/30 border-gray-700'
+                        }`}>
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-br from-white/5 to-transparent rounded-full -mr-8 -mt-8 pointer-events-none"></div>
+                        <div className="flex justify-between items-center text-xs mb-1">
+                          <span className="text-gray-400 flex items-center gap-1">🔮 AI Forecast</span>
+                          <span className={`font-mono text-[10px] ${coin.forecast.velocity > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {coin.forecast.velocity > 0 ? 'Rising' : 'Falling'} ({coin.forecast.velocity})
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-end">
+                          <span className="text-sm font-bold text-gray-200">{coin.forecast.prediction}</span>
+                          <span className="text-xs text-yellow-400 font-mono bg-yellow-400/10 px-1 rounded border border-yellow-400/20">
+                            {coin.forecast.timeFrame}
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Active Position Status */}
                     <div className="mt-auto pt-2">

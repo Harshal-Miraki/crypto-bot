@@ -102,7 +102,7 @@ export default function HistoryPage() {
                         <Link href="/" className="text-gray-400 hover:text-white transition-colors">
                             ← Back to Dashboard
                         </Link>
-                        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+                        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-purple-400">
                             Trade Log
                         </h1>
                     </div>
