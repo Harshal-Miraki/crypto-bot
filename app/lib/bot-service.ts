@@ -31,6 +31,7 @@ export type Position = {
   takeProfitLevel1?: number; // Target 1 (+2%)
   activeTrailingStop?: boolean;
   highestPriceSeen?: number;
+  targetPriceMax?: number; // New: Max Profit Target
 };
 
 
@@ -120,6 +121,7 @@ export const BotService = {
         takeProfitLevel1: data.takeProfitLevel1,
         activeTrailingStop: data.activeTrailingStop,
         highestPriceSeen: data.highestPriceSeen,
+        targetPriceMax: data.targetPriceMax,
       } as Position;
 
     } catch (error) {
@@ -129,13 +131,34 @@ export const BotService = {
   },
 
   /**
+   * Get ALL active positions (for History Page).
+   */
+  async getActivePositions(): Promise<Position[]> {
+    try {
+      const q = query(
+        collection(db, 'positions'),
+        where('status', '==', 'OPEN'),
+        orderBy('opened_at', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Position));
+    } catch (error) {
+      console.error('Error fetching all active positions:', error);
+      return [];
+    }
+  },
+
+  /**
    * Open a new position.
    */
-  async openPosition(symbol: string, price: number, quantity: number = 0.001) {
+  async openPosition(symbol: string, price: number, quantity: number = 0.001, targetPriceMax?: number) {
     try {
       // Calculate Risk Levels
       const stopLossPrice = Number((price * 0.97).toFixed(2)); // -3% Stop Loss
       const takeProfitLevel1 = Number((price * 1.02).toFixed(2)); // +2% Take Profit
+      // Use provided max target or default to +4%
+      const finalTargetMax = targetPriceMax || Number((price * 1.04).toFixed(2));
 
       const newPosition = {
         symbol,
@@ -146,13 +169,14 @@ export const BotService = {
         notes: 'Opened by Bot (v3.0 Strategy)',
         stopLossPrice,
         takeProfitLevel1,
+        targetPriceMax: finalTargetMax,
         activeTrailingStop: false,
         highestPriceSeen: price
       };
 
       const docRef = await addDoc(collection(db, 'positions'), newPosition);
       
-      await this.log('TRADE', `Opened BUY position for ${symbol} at $${price}. SL: $${stopLossPrice} (-3%)`);
+      await this.log('TRADE', `Opened BUY position for ${symbol} at $${price}. SL: $${stopLossPrice} (-3%). Target: $${finalTargetMax}`);
       
       
       return { id: docRef.id, ...newPosition };

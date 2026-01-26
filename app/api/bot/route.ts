@@ -215,8 +215,19 @@ async function analyzeAndTrade(symbol: string, exchange: any, USD_INR: number) {
                 if (stats.consecutiveWins >= 2) riskUSD = 120; 
                 if (stats.consecutiveLosses >= 2) riskUSD = 60; 
                 const quantity = Number((riskUSD / currentPrice).toFixed(5));
-                await BotService.openPosition(symbol, currentPrice, quantity);
+
+                // Calculate Targets
+                const targetConservative = currentPrice * 1.02; // 2%
+                // Aggressive: Upper Band or 4% fallback
+                let targetMax = bbUpper > currentPrice ? bbUpper : currentPrice * 1.04;
+                // Ensure targetMax is at least higher than conservative
+                if (targetMax <= targetConservative) targetMax = currentPrice * 1.05;
+
+                await BotService.openPosition(symbol, currentPrice, quantity, Number(targetMax.toFixed(2)));
+                
                 actionTaken = `EXECUTION: Opened Long ($${riskUSD})`;
+                reasons.push(`Target 1: $${targetConservative.toFixed(2)}`, `Max Target: $${targetMax.toFixed(2)}`);
+                
                 stats.tradesToday += 1;
                 await BotService.updateTradingStats(stats);
             } else {
@@ -231,6 +242,24 @@ async function analyzeAndTrade(symbol: string, exchange: any, USD_INR: number) {
     const shouldEmail = (signal !== 'HOLD') || (activePosition !== null && Math.abs((currentPrice - activePosition.entry_price)/activePosition.entry_price) > 0.05);
 
     if (shouldEmail && EMAIL_USER && EMAIL_PASS) {
+        
+        let targetSection = '';
+        if (signal === 'BUY') {
+             const targetConservative = currentPrice * 1.02;
+             let targetMax = bbUpper > currentPrice ? bbUpper : currentPrice * 1.04;
+             if (targetMax <= targetConservative) targetMax = currentPrice * 1.05;
+
+             targetSection = `
+               ---------------------------
+               🎯 SELL TARGETS (Profit Maximization)
+               
+               1. Conservative Exit (2%): $${targetConservative.toFixed(2)} (₹${(targetConservative * USD_INR).toLocaleString('en-IN', {maximumFractionDigits: 0})})
+               2. Max Profit Target:      $${targetMax.toFixed(2)} (₹${(targetMax * USD_INR).toLocaleString('en-IN', {maximumFractionDigits: 0})})
+               
+               Tip: Move Stop Loss to Breakeven once Target 1 is hit.
+             `;
+        }
+
         const mailOptions = {
             from: EMAIL_USER,
             to: EMAIL_USER,
@@ -241,6 +270,7 @@ async function analyzeAndTrade(symbol: string, exchange: any, USD_INR: number) {
               Regime: ${regime} | ${volatility}
               Time Check: ${timeSafetyWarning || 'Safe'}
               Reasons: ${reasons.join(', ') || 'Holding'}
+              ${targetSection}
               ---------------------------
               RSI: ${currentRSI.toFixed(2)}
               MACD: ${macdHist.toFixed(4)}
