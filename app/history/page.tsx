@@ -28,8 +28,8 @@ export default function HistoryPage() {
     }, []);
 
     const renderTable = (data: Position[], isActive: boolean) => (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-lg mb-8">
-            <div className="overflow-x-auto">
+        <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg mb-8">
+            <div className="overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-700 text-gray-300 text-sm uppercase">
@@ -97,18 +97,18 @@ export default function HistoryPage() {
     return (
         <div className="min-h-screen bg-gray-900 text-white p-8 font-sans">
             <div className="max-w-7xl mx-auto">
-                <header className="flex justify-between items-center border-b border-gray-700 pb-4 mb-8">
-                    <div className="flex items-center space-x-4">
+                <header className="flex flex-col md:flex-row justify-between items-center border-b border-gray-700 pb-4 mb-8 gap-4">
+                    <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-4 text-center md:text-left">
                         <Link href="/" className="text-gray-400 hover:text-white transition-colors">
                             ← Back to Dashboard
                         </Link>
-                        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-purple-400">
+                        <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-purple-400">
                             Trade Log
                         </h1>
                     </div>
                     <button
                         onClick={() => window.location.reload()}
-                        className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm transition-colors"
+                        className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm transition-colors w-full md:w-auto"
                     >
                         ↻ Refresh Data
                     </button>

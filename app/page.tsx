@@ -100,29 +100,29 @@ export default function Home() {
       <div className="max-w-7xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-center border-b border-brand-blue pb-4 gap-4">
           <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-purple-400">Crypto Multi-Bot Dashboard</h1>
-          <div className="flex space-x-4">
+          <div className="flex flex-wrap gap-3 justify-center md:justify-end">
             <Link
               href="/tracker"
-              className="text-gray-300 hover:text-white px-4 py-2 rounded text-sm transition-colors border border-brand-blue hover:border-gray-500 bg-brand-navy/50"
+              className="text-gray-300 hover:text-white px-3 py-2 rounded text-sm transition-colors border border-brand-blue hover:border-gray-500 bg-brand-navy/50 whitespace-nowrap"
             >
               🎯 Manual Tracker
             </Link>
             <Link
               href="/history"
-              className="text-gray-300 hover:text-white px-4 py-2 rounded text-sm transition-colors border border-brand-blue hover:border-gray-500 bg-brand-navy/50"
+              className="text-gray-300 hover:text-white px-3 py-2 rounded text-sm transition-colors border border-brand-blue hover:border-gray-500 bg-brand-navy/50 whitespace-nowrap"
             >
               📜 Trade History
             </Link>
             <button
               onClick={testEmail}
-              className="bg-brand-navy hover:bg-brand-blue border border-brand-blue px-4 py-2 rounded text-sm transition-colors"
+              className="bg-brand-navy hover:bg-brand-blue border border-brand-blue px-3 py-2 rounded text-sm transition-colors whitespace-nowrap"
             >
               Test Email
             </button>
             <button
               onClick={runBot}
               disabled={loading}
-              className="bg-brand-blue hover:bg-brand-navy border border-blue-500 px-4 py-2 rounded text-sm transition-colors font-bold shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+              className="bg-brand-blue hover:bg-brand-navy border border-blue-500 px-3 py-2 rounded text-sm transition-colors font-bold shadow-[0_0_15px_rgba(59,130,246,0.5)] whitespace-nowrap"
             >
               {loading ? 'Analyzing...' : '↻ Run Analysis'}
             </button>
