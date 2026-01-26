@@ -13,4 +13,4 @@ jobs:
         run: |
           # Replace this URL with your actual Vercel project URL after deployment
           # Example: https://trading-bot-harshal.vercel.app/api/bot
-          curl -I -X GET "https://trading-bot-harshal-miraki.vercel.app/api/bot" || echo "Bot Trigger Failed"
+          curl -I -X GET "https://crypto-bot-brown.vercel.app/api/bot" || echo "Bot Trigger Failed"
