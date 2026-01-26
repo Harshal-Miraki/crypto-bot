@@ -1,0 +1,16 @@
+name: Trigger Trading Bot
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # Run every 10 minutes
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  wake-up-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Vercel Bot API
+        run: |
+          # Replace this URL with your actual Vercel project URL after deployment
+          # Example: https://trading-bot-harshal.vercel.app/api/bot
+          curl -I -X GET "https://trading-bot-harshal-miraki.vercel.app/api/bot" || echo "Bot Trigger Failed"
