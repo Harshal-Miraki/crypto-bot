@@ -548,46 +548,80 @@ async function analyzeAndTrade(
 
   if (shouldEmail && EMAIL_USER && EMAIL_PASS) {
     let bodySection = '';
+    let subject = '';
+
     if (signal === 'BUY') {
       const t = calcTargets(currentPrice, currentATR);
+      const slINR  = (t.sl  * USD_INR).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      const tp1INR = (t.tp1 * USD_INR).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      const tp2INR = (t.tp2 * USD_INR).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      const slLoss  = (t.stopPct / 100 * INR_CAPITAL).toFixed(1);
+      subject = `🟢 BUY ${symbol} @ $${currentPrice.toLocaleString()} · ₹${priceINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}  [${activeSetup}]`;
       bodySection = `
-═══════════════════════════════
-📈 BUY SIGNAL — ${symbol}  [${activeSetup}]
-═══════════════════════════════
-Price:  $${currentPrice.toLocaleString()} | ₹${priceINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-Trend:  ${regime} (1H) | ATR: $${currentATR.toFixed(4)} | ADX: ${adxVal.toFixed(0)}
+══════════════════════════════════════════════
+📈  BUY SIGNAL  ·  ${symbol}  ·  [${activeSetup}]
+══════════════════════════════════════════════
 
-🎯 TARGETS (on ₹${INR_CAPITAL} capital):
-  Stop Loss : $${t.sl.toFixed(4)}  (-${t.stopPct}% | -₹${(t.stopPct / 100 * INR_CAPITAL).toFixed(1)})
-  TP1 (50%) : $${t.tp1.toFixed(4)} (+${t.tp1Pct}% | +₹${t.tp1INR})  ← Take half here
-  TP2 (full): $${t.tp2.toFixed(4)} (+${t.tp2Pct}% | +₹${t.tp2INR})  ← Target zone
+💰  ENTRY PRICE
+    USD  :  $${currentPrice.toLocaleString()}
+    INR  :  ₹${priceINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
 
-📊 INDICATORS:
-  StochRSI K: ${stochK.toFixed(1)} | D: ${stochD.toFixed(1)}
-  RSI: ${currentRSI.toFixed(1)} | MACD Hist: ${macdHist.toFixed(6)}
-  EMA9/21: ${ema9AboveEma21 ? 'BULLISH ✅' : 'BEARISH ❌'} | ${bullishCross ? '🚀 FRESH CROSS!' : ''}
-  Volume: ${volRatio.toFixed(1)}x average
+🎯  SELL TARGETS  (Capital: ₹${INR_CAPITAL})
+──────────────────────────────────────────────
+    Stop Loss  :  $${t.sl.toFixed(4)}  ·  ₹${slINR}   (-${t.stopPct}%  ·  -₹${slLoss})
+    TP1 · 50%  :  $${t.tp1.toFixed(4)}  ·  ₹${tp1INR}  (+${t.tp1Pct}%  ·  +₹${t.tp1INR})  ← Take half profit here
+    TP2 · Full :  $${t.tp2.toFixed(4)}  ·  ₹${tp2INR}  (+${t.tp2Pct}%  ·  +₹${t.tp2INR})  ← Final target
+──────────────────────────────────────────────
 
-Signal Strength: ${score ?? '—'}/100
-Reasons: ${reasons.slice(0, 4).join(' | ')}
+📊  MARKET CONTEXT
+    Trend   :  ${regime} (1H)
+    ADX     :  ${adxVal.toFixed(0)}  (${adxVal > 25 ? 'Trending' : 'Ranging'})
+    ATR     :  $${currentATR.toFixed(4)}
+
+📉  INDICATORS
+    StochRSI  :  K ${stochK.toFixed(1)}  ·  D ${stochD.toFixed(1)}
+    RSI       :  ${currentRSI.toFixed(1)}${currentRSI < 40 ? '  ← Oversold' : ''}
+    MACD Hist :  ${macdHist > 0 ? '+' : ''}${macdHist.toFixed(6)}${macdHist > 0 && macdHist > prevMacdHist ? '  ← Rising' : ''}
+    EMA 9/21  :  ${ema9AboveEma21 ? 'BULLISH' : 'BEARISH'}${bullishCross ? '  🚀 FRESH CROSS' : ''}
+    Volume    :  ${volRatio.toFixed(1)}x average${volRatio >= 1.5 ? '  ← High' : ''}
+
+⚡  Signal Strength  :  ${score}/100
+📝  Reasons  :  ${reasons.slice(0, 4).join('  |  ')}
+
+──────────────────────────────────────────────
+AlgoBot  ·  Automated Signal  ·  Not financial advice
+══════════════════════════════════════════════
 `;
     } else if (signal === 'SELL') {
+      const entryUSD = activePosition?.entry_price ?? currentPrice;
+      const entryINR = entryUSD * USD_INR;
       const pnlUSD = activePosition
         ? (currentPrice - activePosition.entry_price) * activePosition.quantity
         : 0;
       const pnlINR = pnlUSD * USD_INR;
+      const isWin  = pnlINR >= 0;
+      subject = `${isWin ? '🟡 SELL WIN' : '🔴 SELL LOSS'} ${symbol} @ $${currentPrice.toLocaleString()} · ₹${priceINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
       bodySection = `
-═══════════════════════════════
-📉 SELL SIGNAL — ${symbol}
-═══════════════════════════════
-Exit Price: $${currentPrice.toLocaleString()} | ₹${priceINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-PnL: ${pnlINR >= 0 ? '+' : ''}₹${pnlINR.toFixed(1)} | ${pnlUSD >= 0 ? '+' : ''}$${pnlUSD.toFixed(4)}
+══════════════════════════════════════════════
+📉  SELL SIGNAL  ·  ${symbol}  ·  ${isWin ? '✅ PROFIT' : '❌ LOSS'}
+══════════════════════════════════════════════
 
-Reason: ${reasons.join(' | ')}
+💰  PRICES
+    Buy  (Entry)  :  $${entryUSD.toLocaleString()}  ·  ₹${entryINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+    Sell (Exit)   :  $${currentPrice.toLocaleString()}  ·  ₹${priceINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+
+📊  P&L RESULT
+    USD  :  ${pnlUSD >= 0 ? '+' : ''}$${pnlUSD.toFixed(2)}
+    INR  :  ${pnlINR >= 0 ? '+' : ''}₹${pnlINR.toFixed(1)}
+
+📝  Close Reason  :  ${reasons.join('  |  ')}
+
+──────────────────────────────────────────────
+AlgoBot  ·  Automated Signal  ·  Not financial advice
+══════════════════════════════════════════════
 `;
     }
 
-    const subject = `${signal === 'BUY' ? '🟢 BUY' : '🔴 SELL'} ${symbol} @ ₹${priceINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
     await transporter.sendMail({
       from: EMAIL_USER,
       to: EMAIL_USER,
