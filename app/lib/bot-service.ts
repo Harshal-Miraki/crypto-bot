@@ -150,15 +150,21 @@ export const BotService = {
   },
 
   /**
-   * Open a new position.
+   * Open a new position with ATR-based or percentage-based risk levels.
    */
-  async openPosition(symbol: string, price: number, quantity: number = 0.001, targetPriceMax?: number) {
+  async openPosition(
+    symbol: string,
+    price: number,
+    quantity: number = 0.001,
+    stopLossPrice?: number,
+    takeProfitLevel1?: number,
+    targetPriceMax?: number
+  ) {
     try {
-      // Calculate Risk Levels
-      const stopLossPrice = Number((price * 0.97).toFixed(2)); // -3% Stop Loss
-      const takeProfitLevel1 = Number((price * 1.02).toFixed(2)); // +2% Take Profit
-      // Use provided max target or default to +4%
-      const finalTargetMax = targetPriceMax || Number((price * 1.04).toFixed(2));
+      // Use provided ATR-based values or fallback to percentage defaults
+      const sl = stopLossPrice ?? Number((price * 0.985).toFixed(6));   // -1.5% fallback
+      const tp1 = takeProfitLevel1 ?? Number((price * 1.015).toFixed(6)); // +1.5% fallback
+      const tp2 = targetPriceMax ?? Number((price * 1.03).toFixed(6));   // +3% fallback
 
       const newPosition = {
         symbol,
@@ -166,19 +172,19 @@ export const BotService = {
         quantity,
         status: 'OPEN',
         opened_at: new Date().toISOString(),
-        notes: 'Opened by Bot (v3.0 Strategy)',
-        stopLossPrice,
-        takeProfitLevel1,
-        targetPriceMax: finalTargetMax,
+        notes: 'Opened by Bot (v4.0 Strategy)',
+        stopLossPrice: sl,
+        takeProfitLevel1: tp1,
+        targetPriceMax: tp2,
         activeTrailingStop: false,
         highestPriceSeen: price
       };
 
       const docRef = await addDoc(collection(db, 'positions'), newPosition);
-      
-      await this.log('TRADE', `Opened BUY position for ${symbol} at $${price}. SL: $${stopLossPrice} (-3%). Target: $${finalTargetMax}`);
-      
-      
+      const slPct = ((price - sl) / price * 100).toFixed(2);
+      const tp2Pct = ((tp2 - price) / price * 100).toFixed(2);
+      await this.log('TRADE', `Opened BUY for ${symbol} @ $${price}. SL: $${sl} (-${slPct}%). TP2: $${tp2} (+${tp2Pct}%)`);
+
       return { id: docRef.id, ...newPosition };
     } catch (error) {
        console.error('Error opening position:', error);

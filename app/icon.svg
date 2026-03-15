@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <!-- Deep blue → vivid purple gradient background -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#1e40af"/>
+      <stop offset="100%" stop-color="#6d28d9"/>
+    </linearGradient>
+
+    <!-- White → soft lavender gradient for the bolt itself -->
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#c4b5fd"/>
+    </linearGradient>
+
+    <!-- Subtle inner-top highlight gradient -->
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="rgba(255,255,255,0.18)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+
+  <!-- Top shine overlay for depth -->
+  <rect x="1" y="1" width="30" height="15" rx="6" fill="url(#shine)"/>
+
+  <!-- Subtle border ring -->
+  <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="6.5"
+        fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
+
+  <!-- Lightning bolt: classic Z-shape, centred in the 32×32 box -->
+  <!--
+    M19 2  → top-right corner of bolt
+    L9  17 → mid-left (upper diagonal)
+    H15    → right along inner notch (y=17)
+    L12 30 → lower-left tip
+    L23 14 → right side going back up
+    H17    → left along inner notch (y=14)
+    Z      → close back to (19,2)
+  -->
+  <path d="M19 2L9 17H15L12 30L23 14H17Z" fill="url(#bolt)"/>
+
+  <!-- Tiny green upward-trend dot — subtle signal indicator -->
+  <circle cx="26" cy="5" r="2.2" fill="#34d399" fill-opacity="0.85"/>
+</svg>
