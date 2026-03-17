@@ -1,8 +1,9 @@
 name: Trigger Trading Bot
 
+# on:
+#   schedule:
+#     - cron: '*/5 * * * *' # Run every 5 minutes (GitHub Actions minimum)
 on:
-  schedule:
-    - cron: '*/5 * * * *' # Run every 5 minutes (GitHub Actions minimum)
   workflow_dispatch: # Allow manual trigger
 
 jobs:
